@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { Area, AreaChart, YAxis } from "recharts";
 import { ZERO_SAFE_Y_DOMAIN } from "@/lib/chart-domain";
@@ -20,6 +20,10 @@ export type DashboardStatCard = {
     valueLabel?: string;
     // Period-over-period change as a percent (12.5 -> +12.5%). Renders a trend badge.
     delta?: number;
+    // Optional control rendered at the foot of the card (e.g. a breakdown line).
+    action?: ReactNode;
+    // Optional control rendered top-right, in line with the label (e.g. a "View errors" button).
+    headerAction?: ReactNode;
 };
 
 export function DashboardStatCards({ cards }: { cards: DashboardStatCard[] }) {
@@ -41,7 +45,10 @@ function StatCard({ card }: { card: DashboardStatCard }) {
             <CardContent className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                     <span className="text-sm text-muted-foreground">{card.label}</span>
-                    {card.delta !== undefined && !card.isLoading && <DeltaBadge delta={card.delta} />}
+                    <div className="flex items-center gap-2">
+                        {card.delta !== undefined && !card.isLoading && <DeltaBadge delta={card.delta} />}
+                        {card.headerAction}
+                    </div>
                 </div>
                 {card.isLoading ? (
                     <Skeleton className="h-9 w-20" />
@@ -49,6 +56,7 @@ function StatCard({ card }: { card: DashboardStatCard }) {
                     <div className="text-3xl font-semibold tracking-tight tabular-nums">{valueLabel}</div>
                 )}
                 {card.caption && <div className="text-xs text-muted-foreground">{card.caption}</div>}
+                {card.action && <div className="pt-2">{card.action}</div>}
             </CardContent>
             {card.series && card.series.length > 1 && (
                 <Sparkline series={card.series} dates={card.seriesDates} label={card.label} />

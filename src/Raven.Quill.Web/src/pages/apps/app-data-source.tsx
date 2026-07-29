@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { formatDistance } from "date-fns";
+import { AppWindow, CalendarClock, Database } from "lucide-react";
 import { api } from "@/api/api";
-import type { AppResponse } from "@/api/generated/server-api";
+import type { AppResponse, CdcError } from "@/api/generated/server-api";
 import { ApiState } from "@/components/data/api-state";
 import { PagePanel } from "@/components/data/page-panel";
+import { Button } from "@/components/shadcn/ui/button";
+import { Card, CardContent } from "@/components/shadcn/ui/card";
 import { SectionCard } from "@/pages/apps/section-card";
 import { CollectionsSection } from "@/pages/apps/collections-section";
-import { CdcHealthHeader } from "@/pages/apps/cdc-health-header";
-import { CdcErrorsPanel } from "@/pages/apps/cdc-errors-panel";
 import { CdcBatchTimeline } from "@/pages/apps/cdc-batch-timeline";
-import { useCdcLivePerformance, type CdcLiveBatch } from "@/pages/apps/use-cdc-live-performance";
+import { CdcErrorsSheet } from "@/pages/apps/cdc-errors-sheet";
+import { DashboardStatCards, type DashboardStatCard } from "@/pages/dashboard/dashboard-stat-cards";
+import { useCdcLivePerformance, type CdcLivePerformance } from "@/pages/apps/use-cdc-live-performance";
 import { formatDate } from "@/lib/format";
 
 export function AppDataSource() {
@@ -25,46 +27,104 @@ export function AppDataSource() {
     return (
         <PagePanel>
             <div className="space-y-8">
-                <ApiState
-                    isLoading={live.connection === "connecting"}
-                    isError={live.connection === "error"}
-                    errorTitle="Could not connect to the live data sync"
-                    onRetry={live.retry}
-                    loadingLabel="Connecting to the live data sync..."
-                >
-                    {live.performance && (
-                        <div className="space-y-4">
-                            <CdcHealthHeader
-                                status={live.performance.status}
-                                recentWrites={live.performance.recentWrites}
-                                errorCount={storedErrors.length}
-                                lastWriteLabel={lastWriteLabel(live.performance.recentBatches, nowMs)}
-                                batchCount={live.performance.totalBatches}
+                <SectionCard title="Connection">
+                    <div className="space-y-4">
+                        <ApiState
+                            isLoading={appQuery.isPending}
+                            onRetry={appQuery.refetch}
+                            isError={appQuery.isError}
+                            errorTitle="Could not load data source"
+                        >
+                            {appQuery.data && <ConnectionCard app={appQuery.data} />}
+                        </ApiState>
+                        <CollectionsSection slug={slug} />
+                    </div>
+                </SectionCard>
+                <SectionCard title="Live CDC performance">
+                    <ApiState
+                        isLoading={live.connection === "connecting"}
+                        isError={live.connection === "error"}
+                        errorTitle="Could not connect to the live data sync"
+                        onRetry={live.retry}
+                        loadingLabel="Connecting to the live data sync..."
+                    >
+                        {live.performance && (
+                            <CdcPerformanceContent
+                                performance={live.performance}
+                                slug={slug}
+                                errors={storedErrors}
+                                nowMs={nowMs}
                             />
-                            <CdcErrorsPanel slug={slug} errors={storedErrors} />
-                            <SectionCard title="Live CDC performance">
-                                <CdcBatchTimeline batches={live.performance.recentBatches} nowMs={nowMs} />
-                            </SectionCard>
-                        </div>
-                    )}
-                </ApiState>
-                <CollectionsSection slug={slug} />
-                <ApiState
-                    isLoading={appQuery.isPending}
-                    isError={appQuery.isError}
-                    errorTitle="Could not load data source"
-                    onRetry={appQuery.refetch}
-                >
-                    {appQuery.data && <ConnectionStrip app={appQuery.data} />}
-                </ApiState>
+                        )}
+                    </ApiState>
+                </SectionCard>
             </div>
         </PagePanel>
     );
 }
 
-function lastWriteLabel(batches: CdcLiveBatch[], nowMs: number): string {
-    const lastEndedMs = batches.reduce((latest, b) => (b.ended ? Math.max(latest, Date.parse(b.ended)) : latest), 0);
-    return lastEndedMs > 0 ? formatDistance(lastEndedMs, nowMs, { addSuffix: true }) : "no writes yet";
+function CdcPerformanceContent({
+    performance,
+    slug,
+    errors,
+    nowMs,
+}: {
+    performance: CdcLivePerformance;
+    slug: string;
+    errors: CdcError[];
+    nowMs: number;
+}) {
+    // The Errors card counts the stored error list — the same set "View errors" opens — so the
+    // number and the sheet always agree, broken down by error step (transformation, load, …).
+    const errorsByStep = countByStep(errors);
+
+    const cards: DashboardStatCard[] = [
+        { label: "Recent writes", value: performance.recentWrites, isLoading: false },
+        {
+            label: "Errors",
+            value: errors.length,
+            isLoading: false,
+            headerAction:
+                errors.length > 0 ? (
+                    <CdcErrorsSheet
+                        slug={slug}
+                        trigger={
+                            <Button variant="destructive-outline" size="sm" className="h-7">
+                                View errors
+                            </Button>
+                        }
+                    />
+                ) : undefined,
+            action:
+                errors.length > 0 ? (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                        {errorsByStep.map(({ step, count: stepCount }) => (
+                            <span key={step}>
+                                <span className="font-medium text-foreground tabular-nums">{stepCount}</span> {step}
+                            </span>
+                        ))}
+                    </div>
+                ) : undefined,
+        },
+    ];
+
+    return (
+        <div className="space-y-4">
+            <DashboardStatCards cards={cards} />
+            <CdcBatchTimeline batches={performance.recentBatches} nowMs={nowMs} />
+        </div>
+    );
+}
+
+// Tally stored errors by their step (e.g. Transformation, Load, Extraction, Configuration),
+// most frequent first, so the card can show what the total is made of.
+function countByStep(errors: CdcError[]): { step: string; count: number }[] {
+    const counts = new Map<string, number>();
+    for (const error of errors) {
+        const step = error.step || "Unknown";
+        counts.set(step, (counts.get(step) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([step, count]) => ({ step, count })).sort((a, b) => b.count - a.count);
 }
 
 // The in-progress batch's width is measured against "now", so the timeline needs a clock that
@@ -78,22 +138,40 @@ function useNow(intervalMs = 1000): number {
     return now;
 }
 
-function ConnectionStrip({ app }: { app: AppResponse }) {
+function ConnectionCard({ app }: { app: AppResponse }) {
     return (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-            <span>
-                Application <span className="font-medium text-foreground">{app.name}</span>
-            </span>
-            <span className="h-3 w-px bg-border" aria-hidden="true" />
-            <span>
-                Source <span className="font-mono text-foreground">{app.database}</span>
-            </span>
-            <span className="h-3 w-px bg-border" aria-hidden="true" />
-            <span>
-                Connected <span className="text-foreground">{formatDate(app.createdAt)}</span>
-            </span>
-            <span className="h-3 w-px bg-border" aria-hidden="true" />
-            <span className="font-mono">{app.cdcTaskName}</span>
+        <Card>
+            <CardContent className="grid gap-6 sm:grid-cols-3">
+                <ConnectionDetail icon={AppWindow} label="Application" value={app.name} />
+                <ConnectionDetail
+                    icon={Database}
+                    label="Source database"
+                    value={<span className="font-mono">{app.database}</span>}
+                />
+                <ConnectionDetail icon={CalendarClock} label="Connected since" value={formatDate(app.createdAt)} />
+            </CardContent>
+        </Card>
+    );
+}
+
+function ConnectionDetail({
+    icon: Icon,
+    label,
+    value,
+}: {
+    icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+    label: string;
+    value: ReactNode;
+}) {
+    return (
+        <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <Icon className="size-4 text-muted-foreground" aria-hidden={true} />
+            </div>
+            <div className="min-w-0 space-y-0.5">
+                <div className="text-xs text-muted-foreground">{label}</div>
+                <div className="truncate text-sm font-medium">{value}</div>
+            </div>
         </div>
     );
 }

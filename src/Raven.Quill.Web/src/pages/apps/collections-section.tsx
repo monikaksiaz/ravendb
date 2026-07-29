@@ -1,55 +1,47 @@
-/* eslint-disable react-hooks/incompatible-library */
-"use no memo";
-
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
+import { Database } from "lucide-react";
 import { api } from "@/api/api";
 import type { DataCollectionDto } from "@/api/generated/server-api";
 import { ApiState } from "@/components/data/api-state";
 import { Badge } from "@/components/shadcn/ui/badge";
-import { VirtualDataTable } from "@/components/table/virtual-data-table";
 import { formatCompact } from "@/lib/format";
-import { SectionCard } from "@/pages/apps/section-card";
 
-const collectionColumns: ColumnDef<DataCollectionDto>[] = [
-    {
-        accessorKey: "name",
-        header: "Collection",
-        cell: ({ getValue }) => <span className="font-medium">{getValue<string>()}</span>,
-    },
-    {
-        accessorKey: "documentsCount",
-        header: "Documents",
-        cell: ({ getValue }) => <span className="tabular-nums">{formatCompact(getValue<number>())}</span>,
-    },
-];
+const fullNumberFormatter = new Intl.NumberFormat("en-US");
+
+function CollectionRow({ collection }: { collection: DataCollectionDto }) {
+    return (
+        <li className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+            <div className="flex min-w-0 items-center gap-2">
+                <Database className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate font-medium">{collection.name}</span>
+            </div>
+            <span
+                className="shrink-0 tabular-nums"
+                title={`${fullNumberFormatter.format(collection.documentsCount)} documents`}
+            >
+                {formatCompact(collection.documentsCount)}
+            </span>
+        </li>
+    );
+}
 
 export function CollectionsSection({ slug }: { slug: string }) {
     const collectionsQuery = useQuery(api.queries.stats.collections(slug));
-
-    // react-table (and its row models) want stable references across renders; "use no memo" opts this
-    // file out of the React Compiler, so the data is memoized explicitly. The columns are static.
-    const collections = useMemo(() => collectionsQuery.data ?? [], [collectionsQuery.data]);
-
-    const table = useReactTable({
-        columns: collectionColumns,
-        data: collections,
-        getCoreRowModel: getCoreRowModel(),
-        getRowId: (collection) => collection.name,
-    });
+    const collections = collectionsQuery.data ?? [];
 
     return (
-        <SectionCard
-            title="Collections"
-            action={
-                collectionsQuery.data && (
-                    <Badge variant="secondary" className="font-mono">
-                        {collectionsQuery.data.length}
-                    </Badge>
-                )
-            }
-        >
+        <section className="overflow-hidden rounded-lg border bg-card">
+            <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+                <div className="flex items-center gap-2">
+                    <h2 className="text-xs text-muted-foreground">Collections</h2>
+                    {collectionsQuery.data && (
+                        <Badge variant="secondary" className="font-mono">
+                            {collectionsQuery.data.length}
+                        </Badge>
+                    )}
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">Documents</span>
+            </div>
             <ApiState
                 isLoading={collectionsQuery.isPending}
                 isError={collectionsQuery.isError}
@@ -57,13 +49,16 @@ export function CollectionsSection({ slug }: { slug: string }) {
                 onRetry={() => void collectionsQuery.refetch()}
                 loadingLabel="Loading collections..."
             >
-                <VirtualDataTable
-                    table={table}
-                    columnCount={collectionColumns.length}
-                    emptyMessage="No collections yet."
-                    className="bg-card"
-                />
+                {collections.length === 0 ? (
+                    <p className="px-3 py-6 text-center text-sm text-muted-foreground">No collections yet.</p>
+                ) : (
+                    <ul className="divide-y">
+                        {collections.map((collection) => (
+                            <CollectionRow key={collection.name} collection={collection} />
+                        ))}
+                    </ul>
+                )}
             </ApiState>
-        </SectionCard>
+        </section>
     );
 }

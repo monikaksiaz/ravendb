@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ws, type RequestHandler } from "msw";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import { appsMocks } from "@/mocks/apps-mocks";
 import { AppDataSource } from "./app-data-source";
 
@@ -53,11 +53,13 @@ export const WithErrors: Story = {
     },
     play: async ({ canvasElement }) => {
         const canvas = within(canvasElement);
-        await expect(await canvas.findByText("Sync error")).toBeVisible();
-        // All three sample errors are visible at once (VISIBLE_ERROR_COUNT), and each matches
-        // one alternative below, so `findByText` would see multiple matches; `findAllByText`
-        // avoids that ambiguity while still asserting a stored error message renders.
-        const [storedErrorMessage] = await canvas.findAllByText(/ShippedAt|Price|change stream/i);
+        // The errors card surfaces the count and a "View errors" button; the messages live in
+        // the sheet it opens, so click through and assert a stored error renders in the drawer.
+        const viewErrors = await canvas.findByRole("button", { name: "View errors" });
+        await userEvent.click(viewErrors);
+        // The sheet renders in a portal outside canvasElement, so query the whole document.
+        const screen = within(document.body);
+        const [storedErrorMessage] = await screen.findAllByText(/ShippedAt|Price|change stream/i);
         await expect(storedErrorMessage).toBeVisible();
     },
 };

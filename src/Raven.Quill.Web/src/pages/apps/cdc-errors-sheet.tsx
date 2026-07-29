@@ -15,8 +15,27 @@ import {
 import { formatCompact } from "@/lib/format";
 import { formatDateTime } from "@/lib/utils";
 
-export function CdcErrorsSheet({ slug, trigger }: { slug: string; trigger: ReactNode }) {
-    const [isOpen, setIsOpen] = useState(false);
+export function CdcErrorsSheet({
+    slug,
+    trigger,
+    open,
+    onOpenChange,
+}: {
+    slug: string;
+    // Optional: omit when driving the sheet in controlled mode via `open`/`onOpenChange`.
+    trigger?: ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}) {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = open !== undefined;
+    const isOpen = isControlled ? open : internalOpen;
+    const setIsOpen = (value: boolean) => {
+        if (!isControlled) {
+            setInternalOpen(value);
+        }
+        onOpenChange?.(value);
+    };
 
     const errorsQuery = useQuery({
         ...api.queries.apps.cdcErrors(slug),
@@ -25,7 +44,7 @@ export function CdcErrorsSheet({ slug, trigger }: { slug: string; trigger: React
 
     return (
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
-            <SheetTrigger asChild>{trigger}</SheetTrigger>
+            {trigger && <SheetTrigger asChild>{trigger}</SheetTrigger>}
             <SheetContent className="w-full sm:max-w-lg data-[side=right]:sm:max-w-lg">
                 <SheetHeader className="border-b">
                     <SheetTitle>App errors</SheetTitle>
