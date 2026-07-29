@@ -28,7 +28,7 @@ export function AppDataSource() {
         <PagePanel>
             <div className="space-y-8">
                 <SectionCard title="Connection">
-                    <div className="space-y-4">
+                    <div className="grid items-start gap-4 lg:grid-cols-2">
                         <ApiState
                             isLoading={appQuery.isPending}
                             onRetry={appQuery.refetch}
@@ -152,7 +152,7 @@ function useNow(intervalMs = 1000): number {
 function ConnectionCard({ app }: { app: AppResponse }) {
     return (
         <Card>
-            <CardContent className="grid gap-6 sm:grid-cols-3">
+            <CardContent className="grid gap-6">
                 <ConnectionDetail icon={AppWindow} label="Application" value={app.name} />
                 <ConnectionDetail
                     icon={Database}
