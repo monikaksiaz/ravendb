@@ -28,7 +28,7 @@ export function AppDataSource() {
         <PagePanel>
             <div className="space-y-8">
                 <SectionCard title="Connection">
-                    <div className="grid items-start gap-4 lg:grid-cols-2">
+                    <div className="grid gap-4 lg:grid-cols-2">
                         <ApiState
                             isLoading={appQuery.isPending}
                             onRetry={appQuery.refetch}
