@@ -10,13 +10,13 @@ const fullNumberFormatter = new Intl.NumberFormat("en-US");
 
 function CollectionRow({ collection }: { collection: DataCollectionDto }) {
     return (
-        <li className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+        <li className="flex items-center justify-between gap-3 px-4 py-1.5 text-sm">
             <div className="flex min-w-0 items-center gap-2.5">
                 <Database className="size-4 shrink-0 text-muted-foreground" />
-                <span className="truncate font-medium">{collection.name}</span>
+                <span className="truncate">{collection.name}</span>
             </div>
             <span
-                className="shrink-0 tabular-nums text-muted-foreground"
+                className="shrink-0 text-muted-foreground tabular-nums"
                 title={`${fullNumberFormatter.format(collection.documentsCount)} documents`}
             >
                 {formatCompact(collection.documentsCount)}
@@ -30,10 +30,10 @@ export function CollectionsSection({ slug }: { slug: string }) {
     const collections = collectionsQuery.data ?? [];
 
     return (
-        <section className="overflow-hidden rounded-xl border bg-card">
-            <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <section className="overflow-hidden rounded-xl border bg-card py-4">
+            <div className="flex items-center justify-between gap-3 px-4 pb-2">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold">Collections</h2>
+                    <h2 className="text-sm">Collections</h2>
                     {collectionsQuery.data && (
                         <Badge variant="secondary" className="font-mono">
                             {collectionsQuery.data.length}
