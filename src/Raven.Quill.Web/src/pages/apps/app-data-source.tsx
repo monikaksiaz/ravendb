@@ -78,8 +78,19 @@ function CdcPerformanceContent({
     // number and the sheet always agree, broken down by error step (transformation, load, …).
     const errorsByStep = countByStep(errors);
 
+    // Writes-per-batch trend for the card's sparkline (same derivation as CdcSyncMini's
+    // throughput), timestamped by each batch's completion so the tooltip reads a time.
+    const writeSeries = performance.recentBatches.map((batch) => batch.processed);
+    const writeSeriesDates = performance.recentBatches.map((batch) => batch.ended ?? batch.started);
+
     const cards: DashboardStatCard[] = [
-        { label: "Recent writes", value: performance.recentWrites, isLoading: false },
+        {
+            label: "Recent writes",
+            value: performance.recentWrites,
+            isLoading: false,
+            series: writeSeries,
+            seriesDates: writeSeriesDates,
+        },
         {
             label: "Errors",
             value: errors.length,
