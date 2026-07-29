@@ -10,13 +10,13 @@ const fullNumberFormatter = new Intl.NumberFormat("en-US");
 
 function CollectionRow({ collection }: { collection: DataCollectionDto }) {
     return (
-        <li className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
-            <div className="flex min-w-0 items-center gap-2">
-                <Database className="size-3.5 shrink-0 text-muted-foreground" />
+        <li className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+            <div className="flex min-w-0 items-center gap-2.5">
+                <Database className="size-4 shrink-0 text-muted-foreground" />
                 <span className="truncate font-medium">{collection.name}</span>
             </div>
             <span
-                className="shrink-0 tabular-nums"
+                className="shrink-0 tabular-nums text-muted-foreground"
                 title={`${fullNumberFormatter.format(collection.documentsCount)} documents`}
             >
                 {formatCompact(collection.documentsCount)}
@@ -30,10 +30,10 @@ export function CollectionsSection({ slug }: { slug: string }) {
     const collections = collectionsQuery.data ?? [];
 
     return (
-        <section className="overflow-hidden rounded-lg border bg-card">
-            <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+        <section className="overflow-hidden rounded-xl border bg-card">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-xs text-muted-foreground">Collections</h2>
+                    <h2 className="text-sm font-semibold">Collections</h2>
                     {collectionsQuery.data && (
                         <Badge variant="secondary" className="font-mono">
                             {collectionsQuery.data.length}
@@ -50,9 +50,9 @@ export function CollectionsSection({ slug }: { slug: string }) {
                 loadingLabel="Loading collections..."
             >
                 {collections.length === 0 ? (
-                    <p className="px-3 py-6 text-center text-sm text-muted-foreground">No collections yet.</p>
+                    <p className="px-4 py-6 text-center text-sm text-muted-foreground">No collections yet.</p>
                 ) : (
-                    <ul className="divide-y">
+                    <ul>
                         {collections.map((collection) => (
                             <CollectionRow key={collection.name} collection={collection} />
                         ))}
