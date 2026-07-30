@@ -30,8 +30,8 @@ export function CollectionsSection({ slug }: { slug: string }) {
     const collections = collectionsQuery.data ?? [];
 
     return (
-        <section className="overflow-hidden rounded-xl border bg-card py-4">
-            <div className="flex items-center justify-between gap-3 px-4 pb-2">
+        <section className="flex flex-col overflow-hidden rounded-xl border bg-card py-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-2">
                 <div className="flex items-center gap-2">
                     <h2 className="text-sm">Collections</h2>
                     {collectionsQuery.data && (
@@ -52,7 +52,7 @@ export function CollectionsSection({ slug }: { slug: string }) {
                 {collections.length === 0 ? (
                     <p className="px-4 py-6 text-center text-sm text-muted-foreground">No collections yet.</p>
                 ) : (
-                    <ul>
+                    <ul className="flex flex-1 flex-col">
                         {collections.map((collection) => (
                             <CollectionRow key={collection.name} collection={collection} />
                         ))}

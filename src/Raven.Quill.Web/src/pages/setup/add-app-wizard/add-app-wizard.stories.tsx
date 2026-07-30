@@ -7,7 +7,8 @@ import { FormWizard } from "@/components/form/wizard/form-wizard";
 import { preventEnterKeySubmission } from "@/lib/form-utils";
 import { defaultApiMocks } from "@/mocks/default-mocks";
 import { discoveryWithAllStates, failedDiscovery, sampleDiscovery, setupMocks } from "@/mocks/setup-mocks";
-import { AddAppWizard } from "./add-app-wizard";
+import { appsMocks, sampleCdcStoppedErrors, sampleCdcStoppedFrame } from "@/mocks/apps-mocks";
+import { AddAppWizard, AppCreatedDialog } from "./add-app-wizard";
 import { getAppFlow, useAppSteps } from "./app-wizard-flow";
 import { useSetupWizardStore } from "./app-wizard-store";
 import { isTableSupported } from "./discover-utils";
@@ -173,4 +174,42 @@ export const MapTables: Story = {
 
 export const Preview: Story = {
     render: () => <AppWizardAtStep initialStep="preview" />,
+};
+
+// The completion modal shown after an app is provisioned: the "App created" dialog with the
+// live CDC "Sync progress" performance section inside. Rendered directly, since the real
+// wizard only opens it after a successful provision.
+export const AppCreated: Story = {
+    parameters: {
+        msw: { handlers: { apps: [appsMocks.cdcProgress(), appsMocks.cdcErrors([])] } },
+    },
+    render: () => (
+        <AppCreatedDialog app={{ slug: "demo", name: "Demo Shop" }} onContinue={() => {}} onSeeDetails={() => {}} />
+    ),
+};
+
+// The same modal once the sync has reported errors: the Errors stat card and its "View
+// errors" trigger for the errors sheet show in the performance section.
+export const AppCreatedWithErrors: Story = {
+    parameters: {
+        msw: { handlers: { apps: [appsMocks.cdcProgress(), appsMocks.cdcErrors()] } },
+    },
+    render: () => (
+        <AppCreatedDialog app={{ slug: "demo", name: "Demo Shop" }} onContinue={() => {}} onSeeDetails={() => {}} />
+    ),
+};
+
+// The modal when the sync has faulted: the "Sync stopped" banner, a red "Stopped" marker on
+// the timeline, and the failed final batch — the same stopped cues as the Data Source view.
+export const AppCreatedSyncStopped: Story = {
+    parameters: {
+        msw: {
+            handlers: {
+                apps: [appsMocks.cdcProgress(sampleCdcStoppedFrame()), appsMocks.cdcErrors(sampleCdcStoppedErrors)],
+            },
+        },
+    },
+    render: () => (
+        <AppCreatedDialog app={{ slug: "demo", name: "Demo Shop" }} onContinue={() => {}} onSeeDetails={() => {}} />
+    ),
 };

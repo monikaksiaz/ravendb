@@ -152,6 +152,104 @@ export function sampleCdcProgressFrame(): CdcLiveRawFrame {
     };
 }
 
+// Builds a now-relative progress frame (index 0 = newest) letting each batch declare its
+// script/read error counts, whether it is still in progress, and a stop reason.
+type BatchSpec = { scriptErrors?: number; readErrors?: number; inProgress?: boolean; stopReason?: string };
+
+function buildCdcFrame(count: number, perBatch: (index: number) => BatchSpec): CdcLiveRawFrame {
+    return {
+        Results: [
+            {
+                TaskName: "cdc/demo-shop",
+                Stats: [
+                    {
+                        Performance: Array.from({ length: count }, (_, index) => {
+                            const spec = perBatch(index);
+                            const scriptErrors = spec.scriptErrors ?? 0;
+                            const readErrors = spec.readErrors ?? 0;
+                            const inProgress = spec.inProgress ?? false;
+                            const startedMs = Date.now() - 5_000 - index * 90_000;
+                            const durationInMs = 900 + Math.round(Math.abs(Math.sin(index)) * 800);
+                            const read = 480 + index * 7;
+                            const readDurationInMs = Math.round(durationInMs * 0.22);
+                            const scriptDurationInMs = Math.round(durationInMs * 0.58);
+                            const writeDurationInMs = durationInMs - readDurationInMs - scriptDurationInMs;
+
+                            return {
+                                Id: index,
+                                Started: new Date(startedMs).toISOString(),
+                                Completed: inProgress ? null : new Date(startedMs + durationInMs).toISOString(),
+                                DurationInMs: durationInMs,
+                                NumberOfReadMessages: read,
+                                NumberOfProcessedMessages: read - scriptErrors - readErrors,
+                                ScriptProcessingErrorCount: scriptErrors,
+                                ReadErrorCount: readErrors,
+                                CurrentlyAllocated: { SizeInBytes: 2_000_000 + index * 40_000 },
+                                BatchPullStopReason: spec.stopReason ?? (inProgress ? "In progress" : "Batch size reached"),
+                                Details: {
+                                    Name: "Batch",
+                                    DurationInMs: durationInMs,
+                                    Operations: [
+                                        { Name: "Read", DurationInMs: readDurationInMs },
+                                        { Name: "Script", DurationInMs: scriptDurationInMs },
+                                        { Name: "Write", DurationInMs: writeDurationInMs },
+                                    ],
+                                },
+                            };
+                        }),
+                    },
+                ],
+            },
+        ],
+    };
+}
+
+// Recoverable per-batch errors while the sink keeps running: two batches fail to transform
+// some documents (script errors), one hits a transient read error that is retried, and the
+// newest batch is still in progress — so the feed stays active.
+export function sampleCdcErrorBatchesFrame(): CdcLiveRawFrame {
+    return buildCdcFrame(14, (index) => ({
+        scriptErrors: index === 3 || index === 9 ? 4 : 0,
+        readErrors: index === 6 ? 2 : 0,
+        inProgress: index === 0,
+        stopReason: index === 6 ? "Read error — retrying" : undefined,
+    }));
+}
+
+// A fatal error stopped the task: the newest batch faulted (the transform script failed to
+// compile) and nothing is in progress after it, so the feed ends on a failed batch and
+// produces no more.
+export function sampleCdcStoppedFrame(): CdcLiveRawFrame {
+    return buildCdcFrame(9, (index) => ({
+        scriptErrors: index === 0 ? 6 : 0,
+        inProgress: false,
+        stopReason: index === 0 ? "Faulted: transformation script failed to compile" : undefined,
+    }));
+}
+
+// The stored error that explains a stopped task: a fatal, task-level failure rather than a
+// single bad document.
+export const sampleCdcStoppedErrors: CdcError[] = [
+    {
+        taskName: "cdc/demo-shop",
+        createdAt: "2026-07-21T08:20:11Z",
+        step: "Script processing",
+        error:
+            "SyntaxError: Unexpected token '}' in transform(orders) at line 3 — the transformation script failed to " +
+            "compile. The CDC task has stopped; fix the script and re-enable the sink.",
+        documentId: null,
+        affectedDocumentsCount: null,
+    },
+    {
+        taskName: "cdc/demo-shop",
+        createdAt: "2026-07-21T08:20:11Z",
+        step: "Read",
+        error: "The change stream was closed because the task stopped after the fatal script error above.",
+        documentId: null,
+        affectedDocumentsCount: 512,
+    },
+];
+
 export const sampleAgentSuggestion: SuggestAgentResponse = {
     configurations: [
         {

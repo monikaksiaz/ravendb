@@ -22,7 +22,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/shadcn/ui/dialog";
-import { CdcSyncMini } from "@/pages/apps/cdc-sync-mini";
+import { CdcPerformanceSection } from "@/pages/apps/cdc-performance-section";
 
 type CreatedApp = { slug: string; name: string };
 
@@ -81,12 +81,21 @@ export function AddAppWizard() {
             <AppCreatedDialog
                 app={createdApp}
                 onContinue={() => createdApp && navigate(appRoutes.addCapability(createdApp.slug, "agent"))}
+                onSeeDetails={() => createdApp && navigate(appRoutes.app(createdApp.slug, "data-source"))}
             />
         </FormProvider>
     );
 }
 
-function AppCreatedDialog({ app, onContinue }: { app: CreatedApp | null; onContinue: () => void }) {
+export function AppCreatedDialog({
+    app,
+    onContinue,
+    onSeeDetails,
+}: {
+    app: CreatedApp | null;
+    onContinue: () => void;
+    onSeeDetails: () => void;
+}) {
     return (
         <Dialog open={app !== null} onOpenChange={(open) => !open && onContinue()}>
             {app && (
@@ -98,8 +107,17 @@ function AppCreatedDialog({ app, onContinue }: { app: CreatedApp | null; onConti
                             have to wait for it to finish.
                         </DialogDescription>
                     </DialogHeader>
-                    <CdcSyncMini slug={app.slug} />
+                    <CdcPerformanceSection
+                        slug={app.slug}
+                        title="Sync progress"
+                        loadingLabel="Connecting to the live data sync..."
+                        errorTitle="Could not connect to the live data sync"
+                        compact
+                    />
                     <DialogFooter>
+                        <Button variant="outline" onClick={onSeeDetails}>
+                            Data Source details
+                        </Button>
                         <Button onClick={onContinue}>Continue</Button>
                     </DialogFooter>
                 </DialogContent>

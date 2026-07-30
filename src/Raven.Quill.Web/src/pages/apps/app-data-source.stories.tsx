@@ -1,7 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ws, type RequestHandler } from "msw";
 import { expect, userEvent, within } from "storybook/test";
-import { appsMocks } from "@/mocks/apps-mocks";
+import {
+    appsMocks,
+    sampleCdcErrorBatchesFrame,
+    sampleCdcErrors,
+    sampleCdcStoppedErrors,
+    sampleCdcStoppedFrame,
+} from "@/mocks/apps-mocks";
 import { AppDataSource } from "./app-data-source";
 
 // Mirrors the WS-only relay route from `apps-mocks.ts`. A dedicated link is built here
@@ -61,6 +67,41 @@ export const WithErrors: Story = {
         const screen = within(document.body);
         const [storedErrorMessage] = await screen.findAllByText(/ShippedAt|Price|change stream/i);
         await expect(storedErrorMessage).toBeVisible();
+    },
+};
+
+// Case 1 — recoverable error batches: some documents fail to transform (Script processing)
+// and one batch hits a transient Read error that is retried, but the sink keeps syncing (the
+// newest batch is still in progress). The Errors card breaks the total down by step and the
+// batch timeline shows the failed batches in red among the healthy ones.
+export const ErrorBatches: Story = {
+    parameters: {
+        msw: {
+            handlers: {
+                apps: [
+                    appsMocks.detail(),
+                    appsMocks.cdcProgress(sampleCdcErrorBatchesFrame()),
+                    appsMocks.cdcErrors(sampleCdcErrors),
+                ],
+            },
+        },
+    },
+};
+
+// Case 2 — the task stopped: a fatal error (the transform script failed to compile) faulted
+// the sink, so the newest batch failed and nothing is in progress after it. The feed ends on
+// a red batch with a "Faulted…" stop reason and the errors list explains the task stopped.
+export const SyncStopped: Story = {
+    parameters: {
+        msw: {
+            handlers: {
+                apps: [
+                    appsMocks.detail(),
+                    appsMocks.cdcProgress(sampleCdcStoppedFrame()),
+                    appsMocks.cdcErrors(sampleCdcStoppedErrors),
+                ],
+            },
+        },
     },
 };
 
